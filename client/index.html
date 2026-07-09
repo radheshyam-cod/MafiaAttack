@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Mafia — A Game of Deceit</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎭</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- ═══ BACKGROUND EFFECTS ═══ -->
+    <div class="bg-effects">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+
+    <!-- ═══ LOBBY SCREEN ═══ -->
+    <section id="lobby-screen" class="screen active">
+      <div class="lobby-container">
+        <header class="lobby-header">
+          <div class="logo">
+            <span class="logo-icon">🎭</span>
+            <h1>Shadow Mafia</h1>
+          </div>
+          <p class="logo-subtitle">A Game of Deceit</p>
+        </header>
+
+        <div id="join-section" class="section-card">
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="create" onclick="switchTab('create')">Create Room</button>
+            <button class="tab-btn" data-tab="join" onclick="switchTab('join')">Join Room</button>
+          </div>
+
+          <div id="tab-create" class="tab-content active">
+            <div class="form-group">
+              <label for="create-name">Your Name</label>
+              <input type="text" id="create-name" class="input" placeholder="Enter your name..." maxlength="20" autocomplete="off">
+            </div>
+            <button id="btn-create" class="btn btn-primary" onclick="handleCreateRoom()">
+              <span class="btn-icon">🎪</span>
+              Create New Room
+            </button>
+          </div>
+
+          <div id="tab-join" class="tab-content">
+            <div class="form-group">
+              <label for="join-name">Your Name</label>
+              <input type="text" id="join-name" class="input" placeholder="Enter your name..." maxlength="20" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label for="join-code">Room Code</label>
+              <input type="text" id="join-code" class="input input-code" placeholder="000000" maxlength="6" autocomplete="off" inputmode="numeric" pattern="[0-9]*">
+            </div>
+            <button id="btn-join" class="btn btn-primary" onclick="handleJoinRoom()">
+              <span class="btn-icon">🚪</span>
+              Join Room
+            </button>
+          </div>
+
+          <div id="error-message" class="error-message hidden"></div>
+        </div>
+
+        <div id="lobby-info" class="section-card hidden">
+          <div class="room-header">
+            <div>
+              <span class="room-label">Room</span>
+              <span id="room-code-display" class="room-code">------</span>
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="copyRoomCode()" title="Copy room code">
+              📋 Copy
+            </button>
+          </div>
+
+          <div class="player-list-header">
+            <span>Players (<span id="player-count">0</span>/12)</span>
+            <span class="min-players">Min 5 to start</span>
+          </div>
+
+          <!-- Lobby notifications (join, leave, kick) -->
+          <div id="lobby-notifications" class="lobby-notifications"></div>
+
+          <ul id="player-list" class="player-list"></ul>
+
+          <div class="lobby-actions">
+            <button id="btn-start" class="btn btn-primary btn-lg" onclick="handleStartGame()" disabled>
+              <span class="btn-icon">▶</span>
+              Start Game
+            </button>
+            <button class="btn btn-ghost" onclick="handleLeaveLobby()">
+              Leave
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ GAME SCREEN ═══ -->
+    <section id="game-screen" class="screen">
+      <div class="game-container">
+        <!-- Game Header -->
+        <header class="game-header">
+          <div class="game-info-top">
+            <span class="phase-badge" id="phase-badge">Night</span>
+            <span class="round-display">Round <span id="round-number">1</span></span>
+            <span class="timer-display" id="timer-display">--:--</span>
+          </div>
+          <div class="game-room-info">
+            <span class="room-tag">Room: <span id="game-room-code">------</span></span>
+            <span class="separator">·</span>
+            <span id="alive-count" class="alive-count">Alive: 0</span>
+          </div>
+        </header>
+
+        <!-- Game Messages / Announcements -->
+        <div id="game-announcement" class="game-announcement hidden">
+          <div class="announcement-content">
+            <p id="announcement-text"></p>
+          </div>
+        </div>
+
+        <!-- Night Action Panel -->
+        <div id="night-panel" class="action-panel hidden">
+          <div class="action-header">
+            <div class="action-header-top">
+              <h3 id="night-action-title">🌙 Night Phase</h3>
+              <span id="night-step-timer" class="step-timer hidden">--:--</span>
+            </div>
+            <p id="night-action-instruction" class="action-instruction"></p>
+          </div>
+          <div id="night-targets" class="targets-grid"></div>
+          <div id="night-waiting" class="night-waiting hidden">
+            <div class="spinner"></div>
+            <p>Night falls... Close your eyes.</p>
+          </div>
+        </div>
+
+        <!-- Day Discussion Panel -->
+        <div id="day-panel" class="action-panel hidden">
+          <div class="action-header">
+            <h3>☀️ Day Phase — Discussion</h3>
+            <p class="action-instruction">Discuss who you think is Mafia. Chat with the town.</p>
+          </div>
+          <div id="chat-messages" class="chat-messages">
+            <div class="chat-empty">The town is silent... Speak up!</div>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" id="chat-input" class="input chat-input" placeholder="Share your suspicions..." maxlength="200" autocomplete="off">
+            <button id="btn-chat-send" class="btn btn-icon-only" onclick="sendChatMessage()">📨</button>
+          </div>
+        </div>
+
+        <!-- Voting Panel -->
+        <div id="voting-panel" class="action-panel hidden">
+          <div class="action-header">
+            <h3>🗳️ Voting Phase</h3>
+            <p class="action-instruction">Vote for who you think is Mafia!</p>
+          </div>
+          <div id="voting-targets" class="targets-grid"></div>
+          <div id="voting-waiting" class="voting-waiting hidden">
+            <div class="spinner"></div>
+            <p>Your vote has been cast. Waiting for others to vote...</p>
+          </div>
+          <div id="vote-summary" class="vote-summary hidden">
+            <h4>Current Votes</h4>
+            <div id="vote-list"></div>
+          </div>
+        </div>
+
+        <!-- Voice Control Bar -->
+        <div id="voice-bar" class="voice-bar hidden">
+          <div class="voice-bar-left">
+            <button id="btn-mute" class="btn btn-voice" onclick="toggleMute()" title="Toggle microphone">
+              <span id="mic-icon" class="voice-icon">🎤</span>
+            </button>
+            <span id="mic-status-text" class="mic-status">Mic On</span>
+          </div>
+          <div class="voice-bar-center">
+            <div class="voice-device-selector">
+              <select id="voice-mic-select" class="voice-select" onchange="handleMicChange(this.value)" title="Microphone">
+                <option value="">🎤 Mic</option>
+              </select>
+              <select id="voice-speaker-select" class="voice-select" onchange="handleSpeakerChange(this.value)" title="Speaker">
+                <option value="">🔊 Speaker</option>
+              </select>
+            </div>
+          </div>
+          <div class="voice-bar-right">
+            <span id="voice-status-dot" class="voice-status-dot idle"></span>
+            <span id="voice-status-text" class="voice-status-text">Idle</span>
+          </div>
+        </div>
+
+        <!-- Player Status Bar -->
+        <div class="player-status-bar">
+          <h4>Players <span id="player-mic-statuses"></span></h4>
+          <div id="player-status-grid" class="player-status-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ RESULT OVERLAY ═══ -->
+    <div id="result-overlay" class="overlay hidden">
+      <div class="result-card">
+        <div class="result-icon" id="result-icon">🏆</div>
+        <h2 id="result-title">Game Over</h2>
+        <p id="result-message"></p>
+        <div id="role-reveal" class="role-reveal"></div>
+        <button class="btn btn-primary" onclick="backToLobby()">Back to Lobby</button>
+      </div>
+    </div>
+
+    <!-- ═══ ROLE REVEAL OVERLAY ═══ -->
+    <div id="role-overlay" class="overlay hidden">
+      <div class="role-card">
+        <div class="role-card-icon" id="role-card-icon">🎭</div>
+        <h2 id="role-card-title">Villager</h2>
+        <p id="role-card-desc" class="role-card-desc">You are a loyal townsperson.</p>
+        <div class="role-card-team" id="role-card-team">Team: Village</div>
+        <button class="btn btn-primary" onclick="closeRoleReveal()">
+          Got it
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ CONNECTION STATUS ═══ -->
+    <div id="connection-status" class="connection-status connected">
+      <span class="status-dot"></span>
+      <span class="status-text">Connected</span>
+    </div>
+  </div>
+
+  <!-- Socket.IO client library -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Client scripts -->
+  <script src="js/utils.js"></script>
+  <script src="js/socket.js"></script>
+  <script src="js/ui/LobbyUI.js"></script>
+  <script src="js/ui/ToastManager.js"></script>
+  <script src="js/ui/AudioManager.js"></script>
+  <script src="js/voice/VoiceManager.js"></script>
+  <script src="js/ui/GameUI.js"></script>
+  <script src="js/ui/VoiceUI.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
