@@ -1,229 +1,529 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0612">
   <title>Shadow Mafia — A Game of Deceit</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎭</text></svg>">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎭</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Cinzel:wght@600;700;900&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/cinematic.css">
 </head>
-<body>
-  <div id="app">
-    <!-- ═══ BACKGROUND EFFECTS ═══ -->
-    <div class="bg-effects">
-      <div class="orb orb-1"></div>
-      <div class="orb orb-2"></div>
-      <div class="orb orb-3"></div>
-    </div>
 
-    <!-- ═══ LOBBY SCREEN ═══ -->
+<body class="theme-lobby">
+
+  <!-- ═══ AMBIENT PARTICLE LAYER ═══ -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- ═══ SCENE LIGHTING / WORLD LAYER ═══ -->
+  <div id="scene-fx" class="scene-fx" aria-hidden="true">
+    <div class="fx-vignette"></div>
+    <div class="fx-moon"></div>
+    <div class="fx-sun"></div>
+    <div class="fx-fog"></div>
+    <div class="fx-rays"></div>
+    <div class="fx-spotlight"></div>
+    <div class="fx-grain"></div>
+  </div>
+
+  <!-- ═══ SOUND TOGGLE ═══ -->
+  <button id="sound-toggle" class="sound-toggle" onclick="toggleSound()" title="Toggle sound" aria-label="Toggle sound">
+    <span class="sound-icon">🔊</span>
+  </button>
+
+  <div id="app">
+
+    <!-- ═══ LOBBY SCREEN — "The Village at Dusk" ═══ -->
     <section id="lobby-screen" class="screen active">
+
+      <!-- Lobby Atmospherics -->
+      <div class="lobby-atmospherics">
+        <div class="atmosphere-layer clouds"></div>
+        <div class="atmosphere-layer fireflies"></div>
+        <div class="atmosphere-layer wind"></div>
+      </div>
+
+      <!-- Background houses/ground -->
+      <div class="lobby-world" aria-hidden="true">
+        <div class="lw-sky"></div>
+        <div class="lw-moon"></div>
+        <div class="lw-stars"></div>
+        <div class="lw-clouds">
+          <span class="lw-cloud c1"></span>
+          <span class="lw-cloud c2"></span>
+          <span class="lw-cloud c3"></span>
+        </div>
+        <div class="lw-village">
+          <div class="lw-house h1"><i class="win w1"></i><i class="win w2"></i><i class="win w3"></i></div>
+          <div class="lw-house h2"><i class="win w1"></i><i class="win w2"></i></div>
+          <div class="lw-house h3"><i class="win w1"></i><i class="win w2"></i><i class="win w3"></i></div>
+          <div class="lw-house h4"><i class="win w1"></i><i class="win w2"></i></div>
+          <div class="lw-house h5"><i class="win w1"></i><i class="win w2"></i><i class="win w3"></i></div>
+        </div>
+        <div class="lw-ground"></div>
+      </div>
+
       <div class="lobby-container">
+
         <header class="lobby-header">
           <div class="logo">
             <span class="logo-icon">🎭</span>
             <h1>Shadow Mafia</h1>
           </div>
           <p class="logo-subtitle">A Game of Deceit</p>
+          <div class="logo-flourish"></div>
         </header>
 
-        <div id="join-section" class="section-card">
-          <div class="tabs">
-            <button class="tab-btn active" data-tab="create" onclick="switchTab('create')">Create Room</button>
-            <button class="tab-btn" data-tab="join" onclick="switchTab('join')">Join Room</button>
+        <!-- Main Menu -->
+        <div id="join-section" class="cinematic-menu">
+          <div class="menu-tabs">
+            <button class="menu-tab-btn active" data-tab="create" onclick="switchTab('create')">Form Village</button>
+            <button class="menu-tab-btn" data-tab="join" onclick="switchTab('join')">Join Village</button>
           </div>
 
-          <div id="tab-create" class="tab-content active">
-            <div class="form-group">
-              <label for="create-name">Your Name</label>
-              <input type="text" id="create-name" class="input" placeholder="Enter your name..." maxlength="20" autocomplete="off">
-            </div>
-            <button id="btn-create" class="btn btn-primary" onclick="handleCreateRoom()">
-              <span class="btn-icon">🎪</span>
-              Create New Room
+          <div id="tab-create" class="menu-content active">
+            <input type="text" id="create-name" class="cinematic-input" placeholder="What is your name?" maxlength="20" autocomplete="off">
+            <button id="btn-create" class="btn-cinematic-action" onclick="handleCreateRoom()">
+              Enter the Shadows
             </button>
           </div>
 
-          <div id="tab-join" class="tab-content">
-            <div class="form-group">
-              <label for="join-name">Your Name</label>
-              <input type="text" id="join-name" class="input" placeholder="Enter your name..." maxlength="20" autocomplete="off">
-            </div>
-            <div class="form-group">
-              <label for="join-code">Room Code</label>
-              <input type="text" id="join-code" class="input input-code" placeholder="000000" maxlength="6" autocomplete="off" inputmode="numeric" pattern="[0-9]*">
-            </div>
-            <button id="btn-join" class="btn btn-primary" onclick="handleJoinRoom()">
-              <span class="btn-icon">🚪</span>
-              Join Room
+          <div id="tab-join" class="menu-content">
+            <input type="text" id="join-name" class="cinematic-input" placeholder="What is your name?" maxlength="20" autocomplete="off">
+            <input type="text" id="join-code" class="cinematic-input input-code" placeholder="Village Code" maxlength="6" autocomplete="off" inputmode="numeric" pattern="[0-9]*">
+            <button id="btn-join" class="btn-cinematic-action" onclick="handleJoinRoom()">
+              Enter the Shadows
             </button>
           </div>
 
           <div id="error-message" class="error-message hidden"></div>
         </div>
 
-        <div id="lobby-info" class="section-card hidden">
-          <div class="room-header">
-            <div>
-              <span class="room-label">Room</span>
-              <span id="room-code-display" class="room-code">------</span>
+        <!-- Lobby (room created / joined) -->
+        <div id="lobby-info" class="lobby-info-floating hidden">
+          <div class="room-header-cinematic">
+            <span class="room-label">Village Code</span>
+            <div class="room-code-display-wrap">
+              <span id="room-code-display" class="room-code-neon">------</span>
+              <button class="btn-copy-code" onclick="copyRoomCode()" title="Copy code">📋</button>
             </div>
-            <button class="btn btn-sm btn-ghost" onclick="copyRoomCode()" title="Copy room code">
-              📋 Copy
+          </div>
+
+          <div class="lobby-toolbar-cinematic">
+            <button id="btn-mic-test" class="btn-lantern" onclick="testMicrophone()" title="Test your microphone">
+              <span class="lantern-icon">🏮</span> Test Voice
             </button>
+            <span id="mic-test-hint" class="mic-test-hint">Speak — the lantern glows when you are heard.</span>
           </div>
 
-          <div class="player-list-header">
-            <span>Players (<span id="player-count">0</span>/12)</span>
-            <span class="min-players">Min 5 to start</span>
-          </div>
-
-          <!-- Lobby notifications (join, leave, kick) -->
           <div id="lobby-notifications" class="lobby-notifications"></div>
 
-          <ul id="player-list" class="player-list"></ul>
+          <div class="table-caption-cinematic">
+            <span class="players-count-glow"><span id="player-count">0</span>/12 Villagers Gathered</span>
+          </div>
 
-          <div class="lobby-actions">
-            <button id="btn-start" class="btn btn-primary btn-lg" onclick="handleStartGame()" disabled>
-              <span class="btn-icon">▶</span>
-              Start Game
+          <div id="player-list" class="lobby-player-circle"></div>
+
+          <div id="ready-caption" class="ready-caption-glow hidden">✨ The village is ready. The host may begin.</div>
+
+          <div class="lobby-actions-cinematic">
+            <button id="btn-start" class="btn-start-game" onclick="handleStartGame()" disabled>
+              Begin Night
             </button>
-            <button class="btn btn-ghost" onclick="handleLeaveLobby()">
-              Leave
+            <button class="btn-leave-game" onclick="handleLeaveLobby()">
+              Flee
             </button>
           </div>
         </div>
+
+        <footer class="lobby-foot">Gather your friends. Trust no one.</footer>
       </div>
     </section>
 
     <!-- ═══ GAME SCREEN ═══ -->
     <section id="game-screen" class="screen">
-      <div class="game-container">
-        <!-- Game Header -->
-        <header class="game-header">
-          <div class="game-info-top">
-            <span class="phase-badge" id="phase-badge">Night</span>
-            <span class="round-display">Round <span id="round-number">1</span></span>
-            <span class="timer-display" id="timer-display">--:--</span>
-          </div>
-          <div class="game-room-info">
-            <span class="room-tag">Room: <span id="game-room-code">------</span></span>
-            <span class="separator">·</span>
-            <span id="alive-count" class="alive-count">Alive: 0</span>
-          </div>
-        </header>
+      <div id="vignette-danger" class="vignette-danger"></div>
+      <div class="game-stage">
 
-        <!-- Game Messages / Announcements -->
-        <div id="game-announcement" class="game-announcement hidden">
-          <div class="announcement-content">
-            <p id="announcement-text"></p>
+        <!-- Cinematic Floating HUD -->
+        <div class="cinematic-hud" id="phase-banner">
+          <div class="hud-top-left">
+            <span class="hud-badge" id="phase-badge">Night</span>
+            <span class="hud-text">Round <span id="round-number">1</span></span>
+          </div>
+          <div class="hud-top-center">
+            <span class="hud-timer" id="timer-display">--:--</span>
+          </div>
+          <div class="hud-top-right">
+            <span class="hud-text"><span id="alive-count">Alive: 0</span></span>
+            <span class="hud-text dim">Room <span id="game-room-code">------</span></span>
           </div>
         </div>
 
-        <!-- Night Action Panel -->
-        <div id="night-panel" class="action-panel hidden">
-          <div class="action-header">
-            <div class="action-header-top">
-              <h3 id="night-action-title">🌙 Night Phase</h3>
-              <span id="night-step-timer" class="step-timer hidden">--:--</span>
-            </div>
-            <p id="night-action-instruction" class="action-instruction"></p>
-          </div>
-          <div id="night-targets" class="targets-grid"></div>
-          <div id="night-waiting" class="night-waiting hidden">
-            <div class="spinner"></div>
-            <p>Night falls... Close your eyes.</p>
-          </div>
+        <!-- The World: player table at center stage -->
+        <div class="stage-world" id="stage-world">
+          <div class="atmosphere-layer layer-fog"></div>
+          <div class="atmosphere-layer layer-sunlight"></div>
+          <div class="world-caption" id="world-caption">The Town</div>
+          <div id="player-status-grid" class="player-table stage-table"></div>
+          <div id="player-mic-statuses" class="sr-only"></div>
         </div>
 
-        <!-- Day Discussion Panel -->
-        <div id="day-panel" class="action-panel hidden">
-          <div class="action-header">
-            <h3>☀️ Day Phase — Discussion</h3>
-            <p class="action-instruction">Discuss who you think is Mafia. Chat with the town.</p>
-          </div>
-          <div id="chat-messages" class="chat-messages">
-            <div class="chat-empty">The town is silent... Speak up!</div>
-          </div>
-          <div class="chat-input-area">
-            <input type="text" id="chat-input" class="input chat-input" placeholder="Share your suspicions..." maxlength="200" autocomplete="off">
-            <button id="btn-chat-send" class="btn btn-icon-only" onclick="sendChatMessage()">📨</button>
-          </div>
-        </div>
+        <!-- Action Stage -->
+        <div class="action-stage">
 
-        <!-- Voting Panel -->
-        <div id="voting-panel" class="action-panel hidden">
-          <div class="action-header">
-            <h3>🗳️ Voting Phase</h3>
-            <p class="action-instruction">Vote for who you think is Mafia!</p>
-          </div>
-          <div id="voting-targets" class="targets-grid"></div>
-          <div id="voting-waiting" class="voting-waiting hidden">
-            <div class="spinner"></div>
-            <p>Your vote has been cast. Waiting for others to vote...</p>
-          </div>
-          <div id="vote-summary" class="vote-summary hidden">
-            <h4>Current Votes</h4>
-            <div id="vote-list"></div>
-          </div>
-        </div>
-
-        <!-- Voice Control Bar -->
-        <div id="voice-bar" class="voice-bar hidden">
-          <div class="voice-bar-left">
-            <button id="btn-mute" class="btn btn-voice" onclick="toggleMute()" title="Toggle microphone">
-              <span id="mic-icon" class="voice-icon">🎤</span>
-            </button>
-            <span id="mic-status-text" class="mic-status">Mic On</span>
-          </div>
-          <div class="voice-bar-center">
-            <div class="voice-device-selector">
-              <select id="voice-mic-select" class="voice-select" onchange="handleMicChange(this.value)" title="Microphone">
-                <option value="">🎤 Mic</option>
-              </select>
-              <select id="voice-speaker-select" class="voice-select" onchange="handleSpeakerChange(this.value)" title="Speaker">
-                <option value="">🔊 Speaker</option>
-              </select>
+          <!-- Announcement -->
+          <div id="game-announcement" class="game-announcement hidden">
+            <div class="announcement-content">
+              <p id="announcement-text"></p>
             </div>
           </div>
-          <div class="voice-bar-right">
-            <span id="voice-status-dot" class="voice-status-dot idle"></span>
-            <span id="voice-status-text" class="voice-status-text">Idle</span>
+
+          <!-- Night Action Panel -->
+          <!-- Night Cinematic Scene -->
+          <div id="night-panel" class="cinematic-night-scene hidden">
+            <div class="night-scene-header">
+              <h3 id="night-action-title" class="night-title">🌙</h3>
+              <p id="night-action-instruction" class="night-instruction"></p>
+              <span id="night-step-timer" class="night-timer hidden">--:--</span>
+            </div>
+            
+            <!-- Floating Targets -->
+            <div id="night-targets" class="night-targets-container"></div>
+            
+            <div id="night-waiting" class="night-waiting hidden">
+              <div class="moon-orb"><span>🌙</span></div>
+              <p>Night falls... The village sleeps.</p>
+            </div>
+          </div>
+
+          <!-- Day Discussion Panel -->
+          <div id="day-panel" class="fullscreen-scene hidden">
+            <!-- New Cinematic Day Overlay -->
+            <div class="day-cinematic-overlay">
+              <div class="day-header">
+                <h3>☀️ Discussion</h3>
+                <span id="day-timer" class="day-timer">03:00</span>
+              </div>
+              
+              <!-- Campfire Circle -->
+              <div class="campfire-scene">
+                <!-- Fire in the center -->
+                <div class="campfire-center">
+                  <div class="fire-flames"></div>
+                  <div class="fire-logs"></div>
+                </div>
+                <!-- Players will be placed here dynamically via JS -->
+                <div id="day-player-circle" class="day-player-circle"></div>
+              </div>
+
+              <!-- Floating Chat & Controls Overlay -->
+              <div class="discussion-controls">
+                
+                <div class="reaction-bar">
+                  <button class="btn-react" onclick="sendReaction('👍')" title="Thumbs Up">👍</button>
+                  <button class="btn-react" onclick="sendReaction('😮')" title="Surprised">😮</button>
+                  <button class="btn-react" onclick="sendReaction('😂')" title="Laugh">😂</button>
+                  <button class="btn-react" onclick="sendReaction('😡')" title="Angry">😡</button>
+                  <button id="btn-raise-hand" class="btn-react btn-raise-hand" onclick="toggleRaiseHand()" title="Raise Hand">✋</button>
+                </div>
+
+                <div class="floating-chat">
+                  <div id="chat-messages" class="chat-messages compact-chat">
+                    <div class="chat-empty">The village is silent...</div>
+                  </div>
+                  <div class="chat-input-area">
+                    <input type="text" id="chat-input" class="input chat-input" placeholder="Type a message..." maxlength="100" autocomplete="off">
+                    <button id="btn-chat-send" class="btn btn-icon-only" onclick="sendChatMessage()">📨</button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- Voting Panel -->
+          <div id="voting-panel" class="fullscreen-scene hidden">
+            <!-- Cinematic Voting Overlay -->
+            <div class="voting-cinematic-overlay">
+              <div id="voting-vignette" class="voting-vignette"></div>
+              
+              <div class="voting-header">
+                <h3 id="voting-title">🗳️ Voting Phase</h3>
+                <p id="voting-instruction" class="action-instruction">Vote for who you think is Mafia!</p>
+              </div>
+
+              <!-- Large Centered Timer -->
+              <div class="voting-timer-container">
+                <span id="voting-timer" class="voting-timer">00:45</span>
+              </div>
+              
+              <!-- Circular Player Layout -->
+              <div id="voting-player-circle" class="voting-player-circle"></div>
+
+              <div id="voting-waiting" class="voting-waiting hidden">
+                <div class="spinner"></div>
+                <p>Your vote has been cast. Waiting for others...</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Voice Control Dock -->
+      <div id="voice-bar" class="voice-bar hidden">
+        <div class="voice-bar-left">
+          <button id="btn-mute" class="btn btn-voice" onclick="toggleMute()" title="Toggle microphone">
+            <span id="mic-icon" class="voice-icon">🎤</span>
+          </button>
+          <span id="mic-status-text" class="mic-status">Mic On</span>
+          <label style="margin-left: 10px; color: #ccc; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" id="ptt-toggle" onchange="togglePTTMode(this.checked)">
+            PTT (Space)
+          </label>
+        </div>
+        <div class="voice-bar-center">
+          <div class="voice-device-selector">
+            <select id="voice-mic-select" class="voice-select" onchange="handleMicChange(this.value)"
+              title="Microphone">
+              <option value="">🎤 Mic</option>
+            </select>
+            <select id="voice-speaker-select" class="voice-select" onchange="handleSpeakerChange(this.value)"
+              title="Speaker">
+              <option value="">🔊 Speaker</option>
+            </select>
           </div>
         </div>
-
-        <!-- Player Status Bar -->
-        <div class="player-status-bar">
-          <h4>Players <span id="player-mic-statuses"></span></h4>
-          <div id="player-status-grid" class="player-status-grid"></div>
+        <div class="voice-bar-right">
+          <span id="voice-quality-icon" style="margin-right: 10px; font-size: 1.2rem;" title="Voice Quality">📶</span>
+          <span id="voice-status-dot" class="voice-status-dot idle"></span>
+          <span id="voice-status-text" class="voice-status-text">Idle</span>
         </div>
       </div>
     </section>
 
-    <!-- ═══ RESULT OVERLAY ═══ -->
-    <div id="result-overlay" class="overlay hidden">
-      <div class="result-card">
-        <div class="result-icon" id="result-icon">🏆</div>
-        <h2 id="result-title">Game Over</h2>
-        <p id="result-message"></p>
-        <div id="role-reveal" class="role-reveal"></div>
-        <button class="btn btn-primary" onclick="backToLobby()">Back to Lobby</button>
+    <!-- ═══ GAME OVER CINEMATIC ═══ -->
+    <div id="game-over-cinematic" class="game-over-cinematic hidden">
+      <div id="goc-bg-village" class="goc-bg hidden">
+        <div class="goc-sunlight"></div>
+        <div class="goc-particles-gold"></div>
+        <div class="goc-confetti"></div>
+      </div>
+      <div id="goc-bg-mafia" class="goc-bg hidden">
+        <div class="goc-sky-red"></div>
+        <div class="goc-lightning"></div>
+        <div class="goc-smoke"></div>
+        <div class="goc-fog"></div>
+      </div>
+      
+      <div class="goc-content">
+        <div class="goc-emblem" id="goc-emblem"></div>
+        <h1 id="goc-title" class="goc-title"></h1>
+        <p id="goc-subtitle" class="goc-subtitle"></p>
+        
+        <div id="goc-stats" class="goc-stats">
+          <!-- Stats will be populated here -->
+        </div>
+
+        <div class="goc-roles-container">
+          <h3>True Identities</h3>
+          <div id="goc-roles-grid" class="goc-roles-grid">
+            <!-- Player roles will be populated here -->
+          </div>
+        </div>
+
+        <div class="goc-actions">
+          <button id="goc-play-again-btn" class="btn btn-success hidden" onclick="playAgain()">Play Again</button>
+          <button class="btn btn-secondary" onclick="leaveGame()">Leave Game</button>
+        </div>
       </div>
     </div>
 
-    <!-- ═══ ROLE REVEAL OVERLAY ═══ -->
-    <div id="role-overlay" class="overlay hidden">
-      <div class="role-card">
-        <div class="role-card-icon" id="role-card-icon">🎭</div>
-        <h2 id="role-card-title">Villager</h2>
-        <p id="role-card-desc" class="role-card-desc">You are a loyal townsperson.</p>
-        <div class="role-card-team" id="role-card-team">Team: Village</div>
-        <button class="btn btn-primary" onclick="closeRoleReveal()">
-          Got it
-        </button>
+    <!-- ═══ CINEMATIC OVERLAY ═══ -->
+    <div id="cinematic-overlay" class="cinematic-overlay hidden">
+      <div class="cinematic-content">
+        <div class="cinematic-emblem" id="cinematic-emblem"></div>
+        <h1 id="cinematic-title" class="cinematic-title"></h1>
+        <p id="cinematic-subtitle" class="cinematic-subtitle"></p>
+      </div>
+    </div>
+
+    <!-- ═══ NIGHT CINEMATIC — "Night Falls" ═══ -->
+    <div id="night-cinematic" class="night-cinematic hidden" aria-hidden="true">
+      <div class="nc-sky"></div>
+      <div class="nc-stars" id="nc-stars"></div>
+      <div class="nc-moon" id="nc-moon">
+        <div class="nc-moon-glow"></div>
+        <div class="nc-moon-face"></div>
+      </div>
+      <div class="nc-clouds">
+        <span class="nc-cloud c1"></span>
+        <span class="nc-cloud c2"></span>
+        <span class="nc-cloud c3"></span>
+      </div>
+      <div class="nc-trees">
+        <span class="nc-tree t1"></span>
+        <span class="nc-tree t2"></span>
+        <span class="nc-tree t3"></span>
+        <span class="nc-tree t4"></span>
+        <span class="nc-tree t5"></span>
+        <span class="nc-tree t6"></span>
+      </div>
+      <div class="nc-fog"></div>
+      <div class="nc-fireflies" id="nc-fireflies"></div>
+      <div class="nc-wind" id="nc-wind"></div>
+      <div class="nc-blue-light"></div>
+      <div class="nc-vignette"></div>
+      <div class="nc-narrator">
+        <p class="nc-line" id="nc-line-1"></p>
+        <p class="nc-line" id="nc-line-2"></p>
+        <div class="nc-watch-hint" id="nc-watch-hint">Close your eyes and watch…</div>
+      </div>
+    </div>
+
+    <!-- ═══ MAFIA SECURE CHANNEL ═══ -->
+    <div id="mafia-secure-channel" class="mafia-secure-channel hidden" aria-hidden="true">
+      <div class="msc-bg">
+        <div class="msc-smoke msc-smoke-a"></div>
+        <div class="msc-smoke msc-smoke-b"></div>
+        <div class="msc-glow"></div>
+        <div class="msc-shadows"></div>
+        <div class="msc-vignette"></div>
+      </div>
+      
+      <div class="msc-content">
+        <div class="msc-header">
+          <h2>🔒 Mafia Secure Channel</h2>
+          <div class="msc-timer" id="msc-timer">30</div>
+          <div class="msc-phase-label" id="msc-phase-label">Discussion Phase</div>
+        </div>
+
+        <div class="msc-layout">
+          <div class="msc-chat-section">
+            <div class="msc-chat-log" id="msc-chat-log"></div>
+            <div class="msc-chat-input-wrapper">
+              <input type="text" id="msc-chat-input" placeholder="Whisper to your team..." autocomplete="off">
+              <button id="msc-chat-send" class="btn btn-danger">Send</button>
+            </div>
+            <div class="msc-typing-indicator" id="msc-typing-indicator"></div>
+          </div>
+          
+          <div class="msc-team-section">
+            <h3>The Family</h3>
+            <ul id="msc-team-list" class="msc-team-list"></ul>
+          </div>
+        </div>
+
+        <div class="msc-voting-section hidden" id="msc-voting-section">
+          <h3>Select a Target</h3>
+          <div class="msc-targets" id="msc-targets"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DOCTOR CINEMATIC ═══ -->
+    <div id="doctor-cinematic" class="doctor-cinematic hidden" aria-hidden="true">
+      <div class="dc-bg">
+        <div class="dc-glow"></div>
+        <div class="dc-particles" id="dc-particles"></div>
+        <div class="dc-vignette"></div>
+      </div>
+      
+      <div class="dc-content">
+        <div class="dc-header">
+          <h2>⚕️ Doctor's Sanctum</h2>
+          <div class="dc-timer" id="dc-timer"></div>
+        </div>
+        
+        <p class="dc-instruction">Whose life will you save tonight?</p>
+
+        <div class="dc-targets" id="dc-targets"></div>
+      </div>
+      
+      <!-- Healing confirmation animation -->
+      <div id="dc-healing-anim" class="dc-healing-anim hidden">
+        <div class="dc-healing-cross"></div>
+        <div class="dc-healing-burst"></div>
+      </div>
+    </div>
+
+    <!-- ═══ DETECTIVE CINEMATIC ═══ -->
+    <div id="detective-cinematic" class="detective-cinematic hidden" aria-hidden="true">
+      <div class="det-bg">
+        <div class="det-desk"></div>
+        <div class="det-flashlight"></div>
+        <div class="det-grain"></div>
+      </div>
+      
+      <div class="det-content">
+        <div class="det-header">
+          <h2>🕵️ Private Investigation</h2>
+          <div class="det-timer" id="det-timer"></div>
+        </div>
+        
+        <p class="det-instruction">Who do you suspect?</p>
+        <div class="det-targets" id="det-targets"></div>
+      </div>
+    </div>
+
+    <!-- ═══ DETECTIVE RESULT ═══ -->
+    <div id="detective-result-cinematic" class="detective-result-cinematic hidden" aria-hidden="true">
+      <div class="det-res-bg"></div>
+      <div class="det-paper" id="det-paper">
+        <h3 class="det-paper-title">CONFIDENTIAL FILE</h3>
+        <div class="det-paper-photo" id="det-paper-photo">👤</div>
+        <div class="det-paper-name" id="det-paper-name">John Doe</div>
+        <div class="det-paper-stamp" id="det-paper-stamp">MAFIA</div>
+      </div>
+    </div>
+
+    <!-- ═══ CINEMATIC ROLE REVEAL — "The Unveiling" ═══ -->
+    <div id="role-overlay" class="role-cinematic hidden" aria-hidden="true">
+      <div class="rc-blackout" id="rc-blackout"></div>
+
+      <div class="rc-camera" id="rc-camera">
+        <div class="rc-bg">
+          <div class="rc-tint"></div>
+          <div class="rc-smoke rc-smoke-a"></div>
+          <div class="rc-smoke rc-smoke-b"></div>
+          <div class="rc-spot"></div>
+          <div class="rc-vignette"></div>
+          <div class="rc-grain"></div>
+        </div>
+        <div class="rc-particles" id="rc-particles"></div>
+      </div>
+
+      <div class="rc-fore">
+        <div class="rc-narrator" id="rc-narrator">
+          <span class="rc-narrator-label">The Narrator</span>
+          <p class="rc-narrator-text" id="rc-narrator-text"></p>
+        </div>
+
+        <div class="rc-stage">
+          <div class="rc-card" id="role-card">
+            <div class="rc-card-glow"></div>
+            <div class="rc-magnifier" id="rc-magnifier" aria-hidden="true">
+              <span class="rc-magnifier-lens"></span>
+              <span class="rc-magnifier-handle"></span>
+              <span class="rc-magnifier-glint"></span>
+            </div>
+            <div class="rc-card-icon" id="role-card-icon">🎭</div>
+            <h2 id="role-card-title">Villager</h2>
+            <p id="role-card-desc" class="rc-card-desc">You are a loyal townsperson.</p>
+            <div class="rc-card-team" id="role-card-team">Team: Village</div>
+            <div id="role-reveal-allies" class="role-reveal"></div>
+            <button class="btn btn-primary rc-understand" id="role-understand-btn" onclick="closeRoleReveal()">I
+              Understand</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -239,12 +539,16 @@
   <!-- Client scripts -->
   <script src="js/utils.js"></script>
   <script src="js/socket.js"></script>
-  <script src="js/ui/LobbyUI.js"></script>
   <script src="js/ui/ToastManager.js"></script>
   <script src="js/ui/AudioManager.js"></script>
+  <script src="js/utils/ParticleEngine.js"></script>
+  <script src="js/ui/LobbyUI.js"></script>
+  <script src="js/scene/SceneManager.js"></script>
   <script src="js/voice/VoiceManager.js"></script>
+  <script src="js/ui/Narrator.js"></script>
   <script src="js/ui/GameUI.js"></script>
   <script src="js/ui/VoiceUI.js"></script>
   <script src="js/main.js"></script>
 </body>
+
 </html>

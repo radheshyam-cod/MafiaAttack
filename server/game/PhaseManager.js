@@ -30,8 +30,26 @@ export class PhaseManager {
   /** Duration per night step in ms (30s). */
   static get NIGHT_STEP_DURATION() { return 30000; }
 
+  /** Delay before the first night action so the cinematic intro can play. */
+  static get NIGHT_INTRO_DELAY() { return 9000; }
+
+  /** Mafia secure-channel discussion window in ms (30s). */
+  static get NIGHT_MAFIA_DISCUSSION() { return 30000; }
+
+  /** Mafia secure-channel voting window in ms (10s). */
+  static get NIGHT_MAFIA_VOTE() { return 10000; }
+
   /** Duration for the voting phase in ms (45s). */
   static get VOTING_DURATION() { return 45000; }
+
+  /** How long the cinematic night intro holds before role turns begin. */
+  getNightIntroDelay() { return PhaseManager.NIGHT_INTRO_DELAY; }
+
+  /** Mafia secure-channel discussion duration (ms). */
+  getMafiaDiscussionDuration() { return PhaseManager.NIGHT_MAFIA_DISCUSSION; }
+
+  /** Mafia secure-channel voting duration (ms). */
+  getMafiaVoteDuration() { return PhaseManager.NIGHT_MAFIA_VOTE; }
 
   /**
    * Get the duration for a phase in milliseconds.
@@ -42,7 +60,7 @@ export class PhaseManager {
     const durations = {
       night: 30000,
       morning: 10000,
-      day: 45000,
+      day: 180000,
       voting: PhaseManager.VOTING_DURATION,
     };
     return durations[phaseName] || 0;

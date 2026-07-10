@@ -60,6 +60,14 @@ class VoiceManager {
     /** @type {string|null} Current audio output device ID */
     this.currentSpeakerId = null;
 
+    // ── Push To Talk (PTT) ──
+    this.isPTTEnabled = false;
+    this.pttActive = false;
+
+    // ── Voice Quality Monitoring ──
+    this.qualityInterval = null;
+    this.onVoiceQualityChange = null;
+
     // ── VAD State ──
     /** @type {AudioContext|null} */
     this.audioContext = null;
@@ -119,6 +127,9 @@ class VoiceManager {
 
       this.initialized = true;
       console.log('[Voice] Initialized successfully');
+
+      // Start voice quality monitoring loop
+      this.startQualityMonitoring();
 
       if (this.onMicAvailable) {
         this.onMicAvailable(true);
@@ -193,7 +204,10 @@ class VoiceManager {
     const normalized = average / 255;
 
     const wasSpeaking = this.speaking;
-    this.speaking = normalized > this.vadThreshold && !this.muted && this.voiceEnabled;
+    
+    // Check if effectively muted due to PTT
+    const pttMuted = this.isPTTEnabled && !this.pttActive;
+    this.speaking = normalized > this.vadThreshold && !this.muted && !pttMuted && this.voiceEnabled;
 
     if (this.speaking !== wasSpeaking) {
       // Emit speaking status change to server
@@ -494,12 +508,34 @@ class VoiceManager {
 
     // Mute/unmute local mic based on whether THIS player is in the allowed list
     const localId = this.localPlayerId || (typeof playerId !== 'undefined' ? playerId : null);
+    
+    let newlyEnabled = false;
     if (localId) {
-      this.voiceEnabled = this.allowedSpeakers.includes(localId);
+      const canSpeak = this.allowedSpeakers.includes(localId);
+      if (canSpeak && !this.voiceEnabled) {
+        newlyEnabled = true;
+      }
+      this.voiceEnabled = canSpeak;
     } else {
       this.voiceEnabled = true; // Fallback if playerId not set yet
     }
     
+    if (newlyEnabled) {
+      // Auto-on microphone when granted permission (e.g. start of day phase)
+      this.setMutedInternal(false);
+      
+      // Update UI button state if it exists
+      const muteBtn = document.getElementById('mute-btn');
+      if (muteBtn) {
+        muteBtn.classList.remove('muted');
+        const icon = muteBtn.querySelector('i');
+        if (icon) {
+          icon.classList.remove('fa-microphone-slash');
+          icon.classList.add('fa-microphone');
+        }
+      }
+    }
+
     this.updateLocalTrackEnabled();
 
     // Apply audio routing: only play audio from allowed speakers
@@ -521,15 +557,38 @@ class VoiceManager {
   }
 
   /**
-   * Internal method to update track enabled state based on game rules and user mute.
+   * Internal method to update track enabled state based on game rules, user mute, and PTT.
    */
   updateLocalTrackEnabled() {
     if (this.localStream) {
-      const effectivelyMuted = this.muted || !this.voiceEnabled;
+      const pttMuted = this.isPTTEnabled && !this.pttActive;
+      const effectivelyMuted = this.muted || !this.voiceEnabled || pttMuted;
       this.localStream.getAudioTracks().forEach((track) => {
         track.enabled = !effectivelyMuted;
       });
     }
+  }
+
+  /**
+   * Activate or deactivate Push-to-Talk.
+   * @param {boolean} active 
+   */
+  setPTTActive(active) {
+    if (!this.isPTTEnabled) return;
+    if (this.pttActive !== active) {
+      this.pttActive = active;
+      this.updateLocalTrackEnabled();
+    }
+  }
+
+  /**
+   * Toggle Push-To-Talk mode.
+   * @param {boolean} enabled 
+   */
+  setPTTMode(enabled) {
+    this.isPTTEnabled = enabled;
+    if (!enabled) this.pttActive = false;
+    this.updateLocalTrackEnabled();
   }
 
   /**
@@ -710,6 +769,55 @@ class VoiceManager {
   }
 
   /**
+   * Start polling RTCPeerConnection stats for voice quality.
+   */
+  startQualityMonitoring() {
+    if (this.qualityInterval) clearInterval(this.qualityInterval);
+    this.qualityInterval = setInterval(() => this.checkVoiceQuality(), 3000);
+  }
+
+  /**
+   * Extract WebRTC stats to determine connection quality.
+   */
+  async checkVoiceQuality() {
+    if (this.peerConnections.size === 0) {
+      if (this.onVoiceQualityChange) this.onVoiceQualityChange('idle');
+      return;
+    }
+
+    let maxRtt = 0;
+    let totalPacketsLost = 0;
+    let checkedPeers = 0;
+
+    for (const pc of this.peerConnections.values()) {
+      try {
+        const stats = await pc.getStats();
+        stats.forEach(report => {
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            if (report.currentRoundTripTime !== undefined) {
+              maxRtt = Math.max(maxRtt, report.currentRoundTripTime * 1000); // ms
+            }
+          }
+          if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+            totalPacketsLost += report.packetsLost || 0;
+          }
+        });
+        checkedPeers++;
+      } catch (err) {
+        // Ignore
+      }
+    }
+
+    if (checkedPeers > 0 && this.onVoiceQualityChange) {
+      let quality = 'good';
+      if (maxRtt > 300 || totalPacketsLost > 50) quality = 'poor';
+      else if (maxRtt > 150 || totalPacketsLost > 10) quality = 'fair';
+      
+      this.onVoiceQualityChange(quality);
+    }
+  }
+
+  /**
    * Clean up all resources.
    */
   destroy() {
@@ -718,6 +826,11 @@ class VoiceManager {
     if (this.vadInterval) {
       clearInterval(this.vadInterval);
       this.vadInterval = null;
+    }
+
+    if (this.qualityInterval) {
+      clearInterval(this.qualityInterval);
+      this.qualityInterval = null;
     }
 
     if (this.audioContext) {
