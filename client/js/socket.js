@@ -140,12 +140,40 @@ function initSocket() {
   });
 
   socket.on('chat:typing', (data) => {
+    if (window.handleMscTyping) window.handleMscTyping(data);
+    if (window.handleDayTyping) window.handleDayTyping(data);
     if (currentGameState && currentGameState.players) {
       const player = currentGameState.players.find(p => p.id === data.playerId);
       if (player) {
         player.typing = data.isTyping;
         updatePlayerStatus(currentGameState.players);
       }
+    }
+  });
+
+  socket.on('chat:reaction', (data) => {
+    if (window.handleDayReaction) window.handleDayReaction(data);
+  });
+
+  socket.on('action:raise_hand', (data) => {
+    if (window.handleDayRaiseHand) window.handleDayRaiseHand(data);
+  });
+
+  socket.on('mafia:channel_start', (data) => {
+    if (window.showMafiaChannel) window.showMafiaChannel(data);
+  });
+
+  socket.on('mafia:vote_start', (data) => {
+    if (window.showMafiaVoting) window.showMafiaVoting(data);
+  });
+
+  socket.on('mafia:voteUpdate', (data) => {
+    if (window.updateMafiaVoteSummary) window.updateMafiaVoteSummary(data);
+  });
+
+  socket.on('night:detective_result', (data) => {
+    if (window.showDetectiveResultCinematic) {
+      window.showDetectiveResultCinematic(data);
     }
   });
 
@@ -168,6 +196,17 @@ function initSocket() {
 
   socket.on('game:ended', (data) => {
     showGameResult(data);
+  });
+
+  socket.on('game:playAgain', (data) => {
+    currentGameState = data;
+    showLobby({
+      roomCode: roomCode,
+      playerId: playerId,
+      players: data.players,
+      hostId: data.hostId,
+      playerCount: data.playerCount
+    });
   });
 
   // ── WebRTC Voice Signaling Events ──────────────────────────
@@ -346,6 +385,8 @@ function resetToLobby() {
   playerId = null;
   roomCode = null;
   currentGameState = null;
+
+  if (window.SceneManager) SceneManager.go('lobby');
 
   document.getElementById('join-section').classList.remove('hidden');
   document.getElementById('lobby-info').classList.add('hidden');

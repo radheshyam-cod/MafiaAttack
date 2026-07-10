@@ -36,6 +36,11 @@ export class GameEngine {
     /** Guards against race conditions from simultaneous action+timeout advancement */
     this._advancingNight = false;
     this._votingResolved = false;
+
+    /** Mafia secure-channel sub-phase state: null | 'discussion' | 'voting' */
+    this._mafiaPhase = null;
+    this._mafiaDiscussionTimer = null;
+    this._mafiaVoteTimer = null;
   }
 
   /**
@@ -169,58 +174,76 @@ export class GameEngine {
     const isNightStep = this.store.phase === 'night' && this.phases && this.phases.getNightStep();
     const nightStep = isNightStep ? this.phases.getNightStep() : null;
 
-    let speakingIds = [];
+    let baseSpeakingIds = [];
 
     if (this.store.state === 'lobby') {
       // Lobby: everyone can speak
-      speakingIds = Array.from(this.store.players.values())
+      baseSpeakingIds = Array.from(this.store.players.values())
         .filter(p => p.isAlive)
         .map(p => p.id);
     } else if (this.store.state === 'playing') {
       switch (nightStep) {
         case 'mafia': {
           // Only alive mafia can speak and hear each other
-          speakingIds = this.store.getAliveMafia().map(p => p.id);
+          baseSpeakingIds = this.store.getAliveMafia().map(p => p.id);
           break;
         }
         case 'doctor': {
           // Only Doctor mic enabled
           const doctor = this.store.findPlayerByRole('Doctor');
-          if (doctor && doctor.isAlive) speakingIds = [doctor.id];
+          if (doctor && doctor.isAlive) baseSpeakingIds = [doctor.id];
           break;
         }
         case 'detective': {
           // Only Detective mic enabled
           const detective = this.store.findPlayerByRole('Detective');
-          if (detective && detective.isAlive) speakingIds = [detective.id];
+          if (detective && detective.isAlive) baseSpeakingIds = [detective.id];
           break;
         }
         default: {
           // morning, day, voting, or night before step start
           if (this.store.phase === 'night') {
             // Night before any step: everyone muted
-            speakingIds = [];
+            baseSpeakingIds = [];
           } else {
             // morning, day, voting: all alive players can speak
-            speakingIds = this.store.getAlivePlayers().map(p => p.id);
+            baseSpeakingIds = this.store.getAlivePlayers().map(p => p.id);
           }
           break;
         }
       }
     } else if (this.store.state === 'ended') {
       // Winner screen: all alive can speak
-      speakingIds = Array.from(this.store.players.values())
+      baseSpeakingIds = Array.from(this.store.players.values())
         .filter(p => p.isAlive)
         .map(p => p.id);
     }
 
-    // Broadcast to all players in the room
-    this.io.to(this.store.roomCode).emit('voice:permissions', {
-      phase: this.store.phase,
-      nightStep,
-      speakingIds,
-      state: this.store.state,
-    });
+    // Broadcast personalized permissions to each player
+    for (const player of this.store.players.values()) {
+      if (!player.socketId) continue;
+      
+      let playerSpeakingIds = [];
+      
+      // If it's a specific night step (like mafia), only those involved should hear each other.
+      // Otherwise (day time, lobby, etc), everyone hears the base list.
+      if (this.store.state === 'playing' && this.store.phase === 'night' && nightStep) {
+        if (baseSpeakingIds.includes(player.id)) {
+          playerSpeakingIds = baseSpeakingIds;
+        } else {
+          playerSpeakingIds = [];
+        }
+      } else {
+         playerSpeakingIds = baseSpeakingIds;
+      }
+
+      this.io.to(player.socketId).emit('voice:permissions', {
+        phase: this.store.phase,
+        nightStep,
+        speakingIds: playerSpeakingIds,
+        state: this.store.state,
+      });
+    }
   }
 
   startNightPhase() {
@@ -240,9 +263,21 @@ export class GameEngine {
     // Broadcast voice permissions (everyone muted for night)
     this.broadcastVoicePermissions();
 
-    // Send actions for the first step and start its timer
-    this.sendActionsForCurrentStep();
-    this.phases.startNightStepTimer(() => this.onNightStepTimeout());
+    // Hold the night intro cinematic before the first role turn begins.
+    // During this window every player stays muted and only watches.
+    if (this._nightIntroTimer) { clearTimeout(this._nightIntroTimer); this._nightIntroTimer = null; }
+    const introDelay = this.phases.getNightIntroDelay();
+    if (introDelay > 0) {
+      this._nightIntroTimer = setTimeout(() => {
+        this._nightIntroTimer = null;
+        if (this.destroyed || this.store.state !== 'playing' || this.store.phase !== 'night') return;
+        this.sendActionsForCurrentStep();
+        this.phases.startNightStepTimer(() => this.onNightStepTimeout());
+      }, introDelay);
+    } else {
+      this.sendActionsForCurrentStep();
+      this.phases.startNightStepTimer(() => this.onNightStepTimeout());
+    }
   }
 
   /**
@@ -260,6 +295,12 @@ export class GameEngine {
       step,
       title: stepTitle,
     });
+
+    // The Mafia step uses the dedicated secure channel (discussion → voting).
+    if (step === 'mafia') {
+      this.startMafiaChannel();
+      return;
+    }
 
     // Broadcast voice permissions for the new step
     this.broadcastVoicePermissions();
@@ -289,7 +330,124 @@ export class GameEngine {
   }
 
   /**
+   * Start the Mafia Secure Channel (Discussion Phase)
+   */
+  startMafiaChannel() {
+    this.broadcastVoicePermissions();
+    this._mafiaPhase = 'discussion';
+    
+    // Clear old votes
+    this.store.mafiaKills.clear();
+
+    const discussionDur = this.phases.getMafiaDiscussionDuration() || 30000;
+    const mafiaTeam = this.getMafiaTeamInfo();
+
+    for (const player of this.store.players.values()) {
+      if (!player.socketId) continue;
+      const socket = this.io.sockets.sockets.get(player.socketId);
+      if (!socket) continue;
+
+      if (!player.isAlive) {
+        socket.emit('night:waiting', { message: 'You are dead. Waiting for the morning...' });
+        continue;
+      }
+
+      if (player.role && player.role.team === 'mafia') {
+        socket.emit('mafia:channel_start', {
+          duration: discussionDur,
+          mafiaTeam: mafiaTeam.filter(m => m.id !== player.id)
+        });
+      } else {
+        socket.emit('night:waiting', {
+          message: 'Sleeping...',
+          timeRemaining: discussionDur + (this.phases.getMafiaVoteDuration() || 10000)
+        });
+      }
+    }
+
+    if (this._mafiaDiscussionTimer) clearTimeout(this._mafiaDiscussionTimer);
+    this._mafiaDiscussionTimer = setTimeout(() => {
+      this.startMafiaVoting();
+    }, discussionDur);
+  }
+
+  /**
+   * Start the Mafia Secure Channel (Voting Phase)
+   */
+  startMafiaVoting() {
+    this._mafiaPhase = 'voting';
+    const voteDur = this.phases.getMafiaVoteDuration() || 10000;
+
+    const actionData = this.phases.getActionDataForRole('Mafia');
+    const aliveMafia = this.store.getAliveMafia();
+
+    for (const mafia of aliveMafia) {
+      if (!mafia.socketId) continue;
+      const socket = this.io.sockets.sockets.get(mafia.socketId);
+      if (socket) {
+        socket.emit('mafia:vote_start', {
+          duration: voteDur,
+          targets: actionData.targets
+        });
+      }
+    }
+
+    if (this._mafiaVoteTimer) clearTimeout(this._mafiaVoteTimer);
+    this._mafiaVoteTimer = setTimeout(() => {
+      this.resolveMafiaVoting();
+    }, voteDur);
+  }
+
+  /**
+   * Automatically resolve the Mafia Vote at the end of the voting timer.
+   */
+  resolveMafiaVoting() {
+    this._mafiaPhase = null;
+    
+    const votes = Array.from(this.store.mafiaKills.values());
+    if (votes.length > 0) {
+      // Find the most voted target
+      const counts = {};
+      let maxVotes = 0;
+      let finalTarget = null;
+      for (const t of votes) {
+        counts[t] = (counts[t] || 0) + 1;
+        if (counts[t] > maxVotes) {
+          maxVotes = counts[t];
+          finalTarget = t;
+        }
+      }
+
+      // Tie breaker logic: For simplicity, the first one to reach max wins
+      
+      // Override all alive mafia to have "voted" for this final target so that
+      // PhaseManager.isMafiaStepComplete() returns true.
+      const aliveMafia = this.store.getAliveMafia();
+      this.store.mafiaKills.clear();
+      for (const mafia of aliveMafia) {
+        this.store.mafiaKills.set(mafia.id, finalTarget);
+      }
+    } else {
+      // No votes cast. We can pick a random target or just abstain (abstain = no kill)
+      // To simulate abstain, we just populate mafiaKills with a dummy "abstain" value
+      const aliveMafia = this.store.getAliveMafia();
+      for (const mafia of aliveMafia) {
+        this.store.mafiaKills.set(mafia.id, 'abstain');
+      }
+    }
+
+    // Now auto-advance the step
+    const nextStep = this.phases.advanceNightStep();
+    if (nextStep === 'complete') {
+      this.resolveNightPhase();
+    } else {
+      this.executeNextNightStep();
+    }
+  }
+
+  /**
    * Send the current night action to a specific player (for reconnects).
+
    * @param {string} playerId
    */
   sendNightActionToPlayer(playerId) {
@@ -327,11 +485,8 @@ export class GameEngine {
 
     switch (step) {
       case 'mafia': {
-        // Only alive mafia players who haven't voted yet get the action screen
-        if (player.role.name !== 'Mafia') return null;
-        if (this.store.mafiaKills.has(player.id)) return null; // already voted
-        const data = this.phases.getActionDataForRole('Mafia');
-        return { ...data, timeRemaining: this.phases.getNightStepTimeRemaining() };
+        // Mafia use the dedicated secure channel instead of the generic panel.
+        return null;
       }
       case 'doctor': {
         if (player.role.name !== 'Doctor') return null;
@@ -372,15 +527,26 @@ export class GameEngine {
     const result = this.phases.handleNightAction(playerVal.player, actionType, actionVal.target);
     if (!result.success) return result;
 
+    if (actionType === 'detective_investigate') {
+      const isMafia = actionVal.target.role === 'Mafia';
+      const detectiveSocket = this.io.sockets.sockets.get(playerVal.player.socketId);
+      if (detectiveSocket) {
+        detectiveSocket.emit('night:detective_result', {
+          targetId: actionVal.target.id,
+          targetName: actionVal.target.name,
+          alignment: isMafia ? 'Mafia' : 'Not Mafia'
+        });
+      }
+    }
+
     // For mafia kills, notify allies
     if (actionType === 'mafia_kill') {
       this.notifyMafiaAllies(playerVal.player, targetId);
     }
 
-    // Check if the current step is complete — if so, advance
-    // Called synchronously (not via setImmediate) to avoid race conditions
-    // with the night step timeout also trying to advance.
-    if (result.stepComplete) {
+    // Mafia kills are resolved by the secure-channel voting timer, not by
+    // per-vote completion. Only advance automatically for other roles.
+    if (result.stepComplete && actionType !== 'mafia_kill') {
       this.advanceNightStep();
     }
 
@@ -549,16 +715,64 @@ export class GameEngine {
     const chatVal = GameValidator.validateChat(this.store, playerVal.player, message);
     if (!chatVal.valid) return chatVal;
 
-    // Broadcast the chat message
-    this.io.to(this.store.roomCode).emit('chat:message', {
+    const msgPayload = {
       playerId: playerVal.player.id,
       playerName: playerVal.player.name,
       message: message.trim().substring(0, 500),
       timestamp: Date.now(),
       isAlive: playerVal.player.isAlive,
-    });
+    };
 
+    // If it's night and it's the mafia step, only route to other alive mafia
+    if (this.store.getPhase() === 'night' && this.phases.getNightStep() === 'mafia') {
+      if (playerVal.player.role && playerVal.player.role.team === 'mafia' && playerVal.player.isAlive) {
+        const aliveMafia = this.store.getAliveMafia();
+        for (const mafia of aliveMafia) {
+          if (mafia.socketId) {
+            const mafiaSocket = this.io.sockets.sockets.get(mafia.socketId);
+            if (mafiaSocket) mafiaSocket.emit('chat:message', msgPayload);
+          }
+        }
+        return { success: true, message: 'Message sent securely.' };
+      }
+      return { success: false, message: 'You cannot speak right now.' };
+    }
+
+    // Broadcast the chat message normally
+    this.io.to(this.store.roomCode).emit('chat:message', msgPayload);
     return { success: true, message: 'Message sent.' };
+  }
+
+  /**
+   * Handle player typing status.
+   * @param {string} socketId 
+   * @param {boolean} isTyping 
+   */
+  handleTyping(socketId, isTyping) {
+    const playerVal = GameValidator.validatePlayer(this.store, socketId);
+    if (!playerVal.valid) return;
+
+    const typingPayload = {
+      playerId: playerVal.player.id,
+      isTyping: !!isTyping
+    };
+
+    // If it's night and it's the mafia step, only route to other alive mafia
+    if (this.store.getPhase() === 'night' && this.phases.getNightStep() === 'mafia') {
+      if (playerVal.player.role && playerVal.player.role.team === 'mafia' && playerVal.player.isAlive) {
+        const aliveMafia = this.store.getAliveMafia();
+        for (const mafia of aliveMafia) {
+          if (mafia.socketId) {
+            const mafiaSocket = this.io.sockets.sockets.get(mafia.socketId);
+            if (mafiaSocket) mafiaSocket.emit('chat:typing', typingPayload);
+          }
+        }
+      }
+      return;
+    }
+
+    // Broadcast normally
+    this.io.to(this.store.roomCode).emit('chat:typing', typingPayload);
   }
 
   /**
@@ -662,6 +876,7 @@ export class GameEngine {
    * End the game and announce winner.
    */
   endGame() {
+    if (this._nightIntroTimer) { clearTimeout(this._nightIntroTimer); this._nightIntroTimer = null; }
     this.store.state = 'ended';
     this.phases.destroy();
 

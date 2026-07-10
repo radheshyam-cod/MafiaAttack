@@ -67,6 +67,26 @@ function initVoiceUI(voiceManager) {
     }
   };
 
+  // Callback for voice quality changes
+  voiceManager.onVoiceQualityChange = (quality) => {
+    const qualityIcon = document.getElementById('voice-quality-icon');
+    if (qualityIcon) {
+      if (quality === 'good') {
+        qualityIcon.textContent = '📶';
+        qualityIcon.style.color = '#4CAF50';
+      } else if (quality === 'fair') {
+        qualityIcon.textContent = '📶';
+        qualityIcon.style.color = '#FFC107';
+      } else if (quality === 'poor') {
+        qualityIcon.textContent = '📶';
+        qualityIcon.style.color = '#F44336';
+      } else {
+        qualityIcon.textContent = '📵';
+        qualityIcon.style.color = '#777';
+      }
+    }
+  };
+
   async function populateDeviceSelectors() {
     const devices = await voiceManager.enumerateDevices();
     
@@ -124,6 +144,34 @@ window.handleVolumeChange = function(id, volume) {
   }
 };
 
+window.togglePTTMode = function(enabled) {
+  if (window.voiceManager) {
+    window.voiceManager.setPTTMode(enabled);
+  }
+};
+
+// ── Keyboard PTT bindings ──
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && window.voiceManager && window.voiceManager.isPTTEnabled) {
+    // Check if the user is typing in a chat input
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      return; // Ignore spacebar if typing
+    }
+    
+    window.voiceManager.setPTTActive(true);
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space' && window.voiceManager && window.voiceManager.isPTTEnabled) {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      return; 
+    }
+    
+    window.voiceManager.setPTTActive(false);
+  }
+});
+
 // Update UI of a specific player chip
 window.updatePlayerSpeakingUI = function(id, speaking) {
   const chip = document.querySelector(`.player-chip[data-player-id="${id}"]`);
@@ -135,6 +183,16 @@ window.updatePlayerSpeakingUI = function(id, speaking) {
       } else {
         avatar.classList.remove('voice-active');
       }
+    }
+  }
+
+  // Also update day phase circle avatars
+  const discAvatar = document.querySelector(`.disc-avatar[data-player-id="${id}"]`);
+  if (discAvatar) {
+    if (speaking) {
+      discAvatar.classList.add('is-speaking');
+    } else {
+      discAvatar.classList.remove('is-speaking');
     }
   }
 };
@@ -150,6 +208,15 @@ window.updatePlayerMuteUI = function(id, muted) {
       } else {
         micIcon.classList.remove('muted');
       }
+    }
+  }
+
+  // Update day phase circle avatars
+  const discAvatar = document.querySelector(`.disc-avatar[data-player-id="${id}"]`);
+  if (discAvatar) {
+    const micIcon = discAvatar.querySelector('.disc-mic');
+    if (micIcon) {
+      micIcon.textContent = muted ? '🔇' : '🎤';
     }
   }
 };

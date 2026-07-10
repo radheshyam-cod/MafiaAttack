@@ -395,12 +395,31 @@ export function registerHandlers(io) {
     socket.on('chat:typing', ({ isTyping } = {}) => {
       if (isRateLimited(socket.id, 'typing')) return;
       const engine = getEngine();
-      if (!engine || !currentPlayerId) return;
+      if (!engine) return;
       
-      io.to(currentRoom).emit('chat:typing', {
-        playerId: currentPlayerId,
-        isTyping: !!isTyping
-      });
+      engine.handleTyping(socket.id, !!isTyping);
+    });
+
+    socket.on('chat:reaction', ({ emoji } = {}) => {
+      if (isRateLimited(socket.id, 'reaction')) return;
+      const engine = getEngine();
+      if (!engine) return;
+      
+      const player = engine.store.getPlayerBySocket(socket.id);
+      if (player && player.isAlive) {
+        io.to(engine.store.roomCode).emit('chat:reaction', { playerId: player.id, emoji });
+      }
+    });
+
+    socket.on('action:raise_hand', ({ active } = {}) => {
+      if (isRateLimited(socket.id, 'reaction')) return;
+      const engine = getEngine();
+      if (!engine) return;
+      
+      const player = engine.store.getPlayerBySocket(socket.id);
+      if (player && player.isAlive) {
+        io.to(engine.store.roomCode).emit('action:raise_hand', { playerId: player.id, active: !!active });
+      }
     });
 
     /**
@@ -481,10 +500,9 @@ export function registerHandlers(io) {
 
       console.log(`[Voice] ${player.name} joined voice in ${currentRoom}`);
 
-      // Also send current voice permissions if game is in progress
-      if (engine.store.state !== 'lobby') {
-        engine.broadcastVoicePermissions();
-      }
+      // Always send current voice permissions so new participants can be heard
+      // and they can know who is allowed to speak.
+      engine.broadcastVoicePermissions();
     });
 
     /**
@@ -604,7 +622,7 @@ export function registerHandlers(io) {
         const engine = activeGames.get(currentRoom);
         if (engine && currentPlayerId) {
           const player = engine.store.players.get(currentPlayerId);
-          if (player) {
+          if (player && player.socketId === socket.id) {
             const playerName = player.name;
 
             if (engine.store.state === 'lobby') {

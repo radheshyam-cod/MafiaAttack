@@ -52,6 +52,9 @@ export class GameStore {
     /** @type {Map<string, string>} mafiaPlayerId → targetId (night kills) */
     this.mafiaKills = new Map();
 
+    /** @type {string|null} Final mafia kill target chosen by the server */
+    this.mafiaTarget = null;
+
     /** @type {string[]} Player IDs protected by the Doctor */
     this.doctorProtected = [];
 
@@ -367,6 +370,7 @@ export class GameStore {
    */
   clearNightActions() {
     this.mafiaKills = new Map();
+    this.mafiaTarget = null;
     this.doctorProtected = [];
     this.nightResult = null;
     this.detectiveResult = null;
@@ -378,24 +382,7 @@ export class GameStore {
    * @returns {object} { killed: string|null, message: string }
    */
   resolveNightActions() {
-    if (this.mafiaKills.size === 0) {
-      return { killed: null, message: 'The night was peaceful...' };
-    }
-
-    // Find the most-voted mafia target
-    const voteCounts = new Map();
-    for (const targetId of this.mafiaKills.values()) {
-      voteCounts.set(targetId, (voteCounts.get(targetId) || 0) + 1);
-    }
-
-    let maxVotes = 0;
-    let selectedTarget = null;
-    for (const [targetId, count] of voteCounts) {
-      if (count > maxVotes) {
-        maxVotes = count;
-        selectedTarget = targetId;
-      }
-    }
+    const selectedTarget = this.mafiaTarget || this._resolveMafiaVote();
 
     if (!selectedTarget) {
       return { killed: null, message: 'The night was peaceful...' };
@@ -421,6 +408,30 @@ export class GameStore {
     };
 
     return this.nightResult;
+  }
+
+  /**
+   * Tally mafia kill votes and pick a target.
+   * Majority wins; ties are broken randomly among the top candidates.
+   * If no votes were cast, a random alive non-mafia player is chosen.
+   * @returns {string|null} chosen target player ID
+   */
+  _resolveMafiaVote() {
+    const counts = new Map();
+    for (const targetId of this.mafiaKills.values()) {
+      counts.set(targetId, (counts.get(targetId) || 0) + 1);
+    }
+    if (counts.size === 0) {
+      const eligible = this.getAlivePlayers().filter(p => !p.role || p.role.team !== 'mafia');
+      return eligible.length ? eligible[Math.floor(Math.random() * eligible.length)].id : null;
+    }
+    let max = 0;
+    const top = [];
+    for (const [targetId, count] of counts) {
+      if (count > max) { max = count; top.length = 0; top.push(targetId); }
+      else if (count === max) top.push(targetId);
+    }
+    return top[Math.floor(Math.random() * top.length)];
   }
 
   // ── Win Condition ──────────────────────────────────────────
