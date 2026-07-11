@@ -84,22 +84,22 @@
         <!-- Main Menu -->
         <div id="join-section" class="cinematic-menu">
           <div class="menu-tabs">
-            <button class="menu-tab-btn active" data-tab="create" onclick="switchTab('create')">Form Village</button>
-            <button class="menu-tab-btn" data-tab="join" onclick="switchTab('join')">Join Village</button>
+            <button class="menu-tab-btn active" data-tab="create" onclick="switchTab('create')">Create Game</button>
+            <button class="menu-tab-btn" data-tab="join" onclick="switchTab('join')">Join Game</button>
           </div>
 
           <div id="tab-create" class="menu-content active">
             <input type="text" id="create-name" class="cinematic-input" placeholder="What is your name?" maxlength="20" autocomplete="off">
             <button id="btn-create" class="btn-cinematic-action" onclick="handleCreateRoom()">
-              Enter the Shadows
+              Create Game
             </button>
           </div>
 
           <div id="tab-join" class="menu-content">
             <input type="text" id="join-name" class="cinematic-input" placeholder="What is your name?" maxlength="20" autocomplete="off">
-            <input type="text" id="join-code" class="cinematic-input input-code" placeholder="Village Code" maxlength="6" autocomplete="off" inputmode="numeric" pattern="[0-9]*">
+            <input type="text" id="join-code" class="cinematic-input input-code" placeholder="Game Code" maxlength="6" autocomplete="off" inputmode="numeric" pattern="[0-9]*">
             <button id="btn-join" class="btn-cinematic-action" onclick="handleJoinRoom()">
-              Enter the Shadows
+              Join Game
             </button>
           </div>
 
@@ -109,7 +109,7 @@
         <!-- Lobby (room created / joined) -->
         <div id="lobby-info" class="lobby-info-floating hidden">
           <div class="room-header-cinematic">
-            <span class="room-label">Village Code</span>
+            <span class="room-label">Game Code</span>
             <div class="room-code-display-wrap">
               <span id="room-code-display" class="room-code-neon">------</span>
               <button class="btn-copy-code" onclick="copyRoomCode()" title="Copy code">📋</button>
@@ -126,16 +126,16 @@
           <div id="lobby-notifications" class="lobby-notifications"></div>
 
           <div class="table-caption-cinematic">
-            <span class="players-count-glow"><span id="player-count">0</span>/12 Villagers Gathered</span>
+            <span class="players-count-glow"><span id="player-count">0</span>/12 Players Joined</span>
           </div>
 
           <div id="player-list" class="lobby-player-circle"></div>
 
-          <div id="ready-caption" class="ready-caption-glow hidden">✨ The village is ready. The host may begin.</div>
+          <div id="ready-caption" class="ready-caption-glow hidden">✨ The game is ready. The host can start.</div>
 
           <div class="lobby-actions-cinematic">
             <button id="btn-start" class="btn-start-game" onclick="handleStartGame()" disabled>
-              Begin Night
+              Start Game
             </button>
             <button class="btn-leave-game" onclick="handleLeaveLobby()">
               Leave Game
@@ -200,7 +200,7 @@
             
             <div id="night-waiting" class="night-waiting hidden">
               <div class="moon-orb"><span>🌙</span></div>
-              <p>Night falls... The village sleeps.</p>
+              <p>Night falls... Everyone goes to sleep.</p>
             </div>
           </div>
 
@@ -439,11 +439,11 @@
       
       <div class="dc-content">
         <div class="dc-header">
-          <h2>⚕️ Doctor's Sanctum</h2>
+          <h2>⚕️ Doctor's Turn</h2>
           <div class="dc-timer" id="dc-timer"></div>
         </div>
         
-        <p class="dc-instruction">Whose life will you save tonight?</p>
+        <p class="dc-instruction">Who do you want to save tonight?</p>
 
         <div class="dc-targets" id="dc-targets"></div>
       </div>
@@ -465,11 +465,11 @@
       
       <div class="det-content">
         <div class="det-header">
-          <h2>🕵️ Private Investigation</h2>
+          <h2>🕵️ Detective's Turn</h2>
           <div class="det-timer" id="det-timer"></div>
         </div>
         
-        <p class="det-instruction">Who do you suspect?</p>
+        <p class="det-instruction">Who do you want to investigate?</p>
         <div class="det-targets" id="det-targets"></div>
       </div>
     </div>
@@ -480,7 +480,7 @@
       <div class="det-paper" id="det-paper">
         <h3 class="det-paper-title">CONFIDENTIAL FILE</h3>
         <div class="det-paper-photo" id="det-paper-photo">👤</div>
-        <div class="det-paper-name" id="det-paper-name">John Doe</div>
+        <div class="det-paper-name" id="det-paper-name">Ankit</div>
         <div class="det-paper-stamp" id="det-paper-stamp">MAFIA</div>
       </div>
     </div>
@@ -517,7 +517,7 @@
             </div>
             <div class="rc-card-icon" id="role-card-icon">🎭</div>
             <h2 id="role-card-title">Villager</h2>
-            <p id="role-card-desc" class="rc-card-desc">You are a loyal townsperson.</p>
+            <p id="role-card-desc" class="rc-card-desc">You are a normal villager.</p>
             <div class="rc-card-team" id="role-card-team">Team: Village</div>
             <div id="role-reveal-allies" class="role-reveal"></div>
             <button class="btn btn-primary rc-understand" id="role-understand-btn" onclick="closeRoleReveal()">I

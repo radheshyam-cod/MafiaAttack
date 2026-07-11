@@ -1,23 +1,13 @@
-/**
- * Shadow Mafia — Game UI
- *
- * Renders all in-game scenes: phase transitions, night actions,
- * chat, voting, player "table", timers and overlays. Every public
- * function name and DOM id is preserved so socket.js keeps working.
- */
-
 let phaseTimerInterval = null;
 let nightStepTimerInterval = null;
 
 const PHASE_WORLD = {
-  night: 'The Shadows',
+  night: 'Night',
   morning: 'The Dawn',
   day: 'The Town Square',
   voting: 'The Trial',
   ended: 'The Verdict',
 };
-
-/* ── Screen / scene boot ─────────────────────────────────── */
 
 function showGameScreen(state) {
   document.getElementById('lobby-screen').classList.remove('active');
@@ -33,24 +23,17 @@ function showGameScreen(state) {
   updatePlayerStatus(state.players);
 }
 
-/* ── Cinematic transition ─────────────────────────────────── */
-
 function triggerCinematic(title, subtitle, isBlood = false, duration = 3000) {
   const overlay = document.getElementById('cinematic-overlay');
   const titleEl = document.getElementById('cinematic-title');
   const subtitleEl = document.getElementById('cinematic-subtitle');
-  const emblemEl = document.getElementById('cinematic-emblem');
   if (!overlay) return;
 
   titleEl.textContent = title;
   subtitleEl.textContent = subtitle || '';
 
-  let emblem = '🌙';
-  if (title.indexOf('Night') >= 0) emblem = '🌙';
-  else if (title.indexOf('Discussion') >= 0) emblem = '☀️';
-  else if (title.indexOf('Voting') >= 0) emblem = '🗳️';
-  else if (title.indexOf('Sun') >= 0) emblem = '🌅';
-  if (isBlood) emblem = '🩸';
+  const emblemMap = { Night: '🌙', Discussion: '☀️', Voting: '🗳️', Sun: '🌅' };
+  const emblem = isBlood ? '🩸' : Object.entries(emblemMap).find(([k]) => title.includes(k))?.[1] || '🌙';
   if (emblemEl) emblemEl.textContent = emblem;
 
   if (isBlood) titleEl.classList.add('blood');
@@ -67,13 +50,10 @@ function triggerCinematic(title, subtitle, isBlood = false, duration = 3000) {
   overlay._hideTimer = setTimeout(() => overlay.classList.add('hidden'), duration);
 }
 
-/* ── Night cinematic — "Night Falls" ───────────────────── */
-
 const NIGHT_NARRATOR = ['Night has fallen.', 'Everyone close your eyes.'];
 
 function buildNightScene() {
-  const reduce = window.matchMedia &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const stars = document.getElementById('nc-stars');
   if (stars) {
@@ -149,11 +129,9 @@ function showNightCinematic(data) {
   // Server already mutes everyone at night; reinforce locally for the transition.
   if (window.voiceManager && window.voiceManager.setMutedInternal) {
     window.voiceManager.setMutedInternal(true);
-  }
-
-  if (window.audioManager) {
+  }      if (window.audioManager) {
     window.audioManager.startNightAmbient();
-    if (window.audioManager.playOwl) overlay._nTimers = overlay._nTimers || [];
+    overlay._nTimers = overlay._nTimers || [];
     if (window.audioManager.playOwl) setTimeout(() => window.audioManager.playOwl(), 4200);
     if (window.audioManager.playWolf) setTimeout(() => window.audioManager.playWolf(), 7200);
   }
@@ -198,8 +176,6 @@ function closeNightCinematic() {
     });
   }, 1000);
 }
-
-/* ── Role reveal (cinematic scene) ───────────────────────── */
 
 const ROLE_NARRATORS = {
   mafia: 'In the crimson dark, a pact is sealed. You are Mafia — strike while the town sleeps.',
@@ -335,8 +311,6 @@ function closeRoleReveal() {
   }, 820);
 }
 
-/* ── Phase updates ────────────────────────────────────────── */
-
 function updatePhase(phase, data) {
   hideAllPanels();
 
@@ -448,8 +422,6 @@ function onNightStep(data) {
   }
 }
 
-/* ── Night actions ────────────────────────────────────────── */
-
 async function showNightAction(data) {
   if (data.actionType === 'doctor_protect') {
     if (window.showDoctorCinematic) window.showDoctorCinematic(data);
@@ -480,7 +452,7 @@ async function showNightAction(data) {
   if (data.actionType === 'mafia_kill' && data.timeRemaining > 30) {
     if (title) title.textContent = '🔪 Mafia — Discuss and Decide';
     if (instruction) instruction.textContent = 'Use voice/chat to discuss. Targeting opens in 30 seconds...';
-    if (window.narrator) window.narrator.speak('Mafia, wake up. Discuss who you will eliminate.');
+    if (window.narrator) window.narrator.speak('Mafia, wake up. Discuss who you want to kill.');
     
     // Wait for 30 seconds for discussion
     await new Promise(r => setTimeout(r, 30000));
@@ -581,8 +553,6 @@ function updateMafiaVote(data) {
     if (btn.dataset.targetId === data.targetId) btn.classList.add('selected');
   });
 }
-
-/* ── Morning ──────────────────────────────────────────────── */
 
 async function showMorning(data) {
   hideAllPanels();
@@ -713,8 +683,6 @@ function showDetectiveResult(data) {
     window._detectiveTimer = null;
   }, 8000);
 }
-
-/* ── Day / chat ───────────────────────────────────────────── */
 
 let dayTimerInterval = null;
 
@@ -910,8 +878,6 @@ function clearNightStepTimerDisplay() {
   if (timerEl) timerEl.classList.add('hidden');
 }
 
-/* ── Voting ───────────────────────────────────────────────── */
-
 let votingTimerInterval = null;
 
 async function showVotingPhase(data) {
@@ -1066,7 +1032,7 @@ function showVoteResult(data) {
 
   if (data.eliminated) {
     if (window.narrator) {
-      window.narrator.speak(escapeHtml(data.eliminated.name) + ' has been eliminated.');
+      window.narrator.speak(escapeHtml(data.eliminated.name) + ' has been voted out.');
     }
     
     // Dramatic presentation
@@ -1082,14 +1048,12 @@ function showVoteResult(data) {
     document.body.classList.add('danger-shake');
     setTimeout(() => { document.body.classList.remove('danger-shake'); }, 1000);
   } else {
-    if (window.narrator) window.narrator.speak('The town could not reach a decision.');
-    text.innerHTML = '<span style="font-size:2rem;">⚖️</span><br><strong>' + (data.message || 'No one was eliminated.') + '</strong>';
+    if (window.narrator) window.narrator.speak('The village could not decide.');
+    text.innerHTML = '<span style="font-size:2rem;">⚖️</span><br><strong>' + (data.message || 'No one was voted out.') + '</strong>';
   }
 
   if (data.players) updatePlayerStatus(data.players);
 }
-
-/* ── Player status (the "table") ─────────────────────────── */
 
 let _updatePlayerStatusRaf = null;
 
@@ -1117,8 +1081,6 @@ function updatePlayerStatus(players) {
 function handleActionResult(data) {
   if (!data.success && data.message) showError(data.message);
 }
-
-/* ── Game result ──────────────────────────────────────────── */
 
 function showGameResult(data) {
   clearInterval(phaseTimerInterval); phaseTimerInterval = null;
@@ -1212,8 +1174,6 @@ function showGameResult(data) {
 function playAgain() { if (window.socket) window.socket.emit('game:playAgain'); }
 function leaveGame() { window.location.reload(); }
 
-/* ── Keyboard ─────────────────────────────────────────────── */
-
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     const chatInput = document.getElementById('chat-input');
@@ -1221,14 +1181,13 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-/* ── Interactive Player Map (Cinematic mode) ──────────────── */
 document.addEventListener('click', (e) => {
   const chip = e.target.closest('.player-chip.is-target');
   if (chip) {
     const targetId = chip.dataset.playerId;
     const nightPanel = document.getElementById('night-panel');
     const votingPanel = document.getElementById('voting-panel');
-    
+
     if (votingPanel && !votingPanel.classList.contains('hidden')) {
       if (typeof selectVoteTarget === 'function') selectVoteTarget(targetId);
     } else if (nightPanel && !nightPanel.classList.contains('hidden')) {
@@ -1236,8 +1195,6 @@ document.addEventListener('click', (e) => {
     }
   }
 });
-
-/* ── Mafia Secure Channel ───────────────────────────────────── */
 
 let mscTimerInterval = null;
 
@@ -1409,8 +1366,6 @@ window.handleMscTyping = function(data) {
   }
 };
 
-/* ── Doctor Cinematic ───────────────────────────────────────── */
-
 let dcTimerInterval = null;
 
 window.showDoctorCinematic = function(data) {
@@ -1490,8 +1445,6 @@ window.showDoctorCinematic = function(data) {
     window.narrator.speak('Doctor, wake up. Choose who to protect.');
   }
 };
-
-/* ── Detective Cinematic ───────────────────────────────────────── */
 
 let detTimerInterval = null;
 
